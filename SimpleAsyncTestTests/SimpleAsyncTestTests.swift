@@ -10,27 +10,71 @@ import XCTest
 @testable import SimpleAsyncTest
 
 class SimpleAsyncTestTests: XCTestCase {
+    var sut: MyClass!
     
     override func setUp() {
         super.setUp()
-        // Put setup code here. This method is called before the invocation of each test method in the class.
+        sut = MyClass()
+    }
+
+    // This test fails because it finishes before receiving the call on the delegate
+    func testSomeAsyncMethodIsNotVerifiedIfThereIsNoExpectation() {
+        // Arrange
+        let myClassDelegateMock = MyClassDelegateMock()
+        sut.delegate = myClassDelegateMock
+        
+        // Act
+        sut.someAsyncMethod()
+        
+        // Assert
+        XCTAssertTrue(myClassDelegateMock.wasCalled)
     }
     
-    override func tearDown() {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-        super.tearDown()
+    // This tests fails after timing out because the expection is not fulfilled
+    func testSomeAsyncMethodIsNotVerifiedIfExpectationIsNotFulfilled() {
+        // Arrange
+        let myClassDelegateMock = MyClassDelegateMock()
+        sut.delegate = myClassDelegateMock
+        let expectation = XCTestExpectation(description: "some async method")
+        
+        // Act
+        sut.someAsyncMethod()
+        
+        // Assert
+        wait(for: [expectation], timeout: 2)
+        XCTAssertFalse(myClassDelegateMock.wasCalled)
     }
     
-    func testExample() {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+    // This test passes because it waits for an expectation to be fulfilled
+    // and it is actually fulfilled in the mocked delegate call
+    func testSomeAsyncMethod() {
+        // Arrange
+        let myClassDelegateMock = MyClassDelegateMock()
+        sut.delegate = myClassDelegateMock
+        let expectation = XCTestExpectation(description: "some async method")
+        myClassDelegateMock.expectation = expectation
+        
+        // Act
+        sut.someAsyncMethod()
+        
+        // Assert
+        wait(for: [expectation], timeout: 2)
+        XCTAssertTrue(myClassDelegateMock.wasCalled)
     }
     
-    func testPerformanceExample() {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
-        }
-    }
     
 }
+
+// MARK: Mocks
+class MyClassDelegateMock : MyClassDelegate {
+    var wasCalled : Bool = false
+    var expectation: XCTestExpectation? = nil
+    func call(){
+        // stubbed implementation
+        wasCalled = true
+        expectation?.fulfill()
+    }
+}
+
+
+
